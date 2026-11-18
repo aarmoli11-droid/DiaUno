@@ -137,6 +137,22 @@ class FinanceRepository {
     await _client.from('cost_distributions').insert(rows);
   }
 
+  /// Búsqueda segura de personas reales para distribuir costes.
+  /// El RPC sólo devuelve id y nombre visible.
+  Future<List<(String id, String name)>> searchDistributionProfiles(
+    String query,
+  ) async {
+    if (query.trim().length < 2) return const [];
+    final rows = await _client.rpc(
+      'search_profiles',
+      params: {'p_query': query.trim()},
+    );
+    return (rows as List).map((r) {
+      final m = Map<String, dynamic>.from(r as Map);
+      return (m['id'] as String, m['display_name'] as String);
+    }).toList();
+  }
+
   Future<String> uploadReceipt({
     required String transactionId,
     required Uint8List bytes,

@@ -79,11 +79,14 @@ class ProjectsRepository {
     await _client.from('projects').delete().eq('id', id);
   }
 
-  Future<List<(String id, String name, String email, ProjectRole role)>>
-  listMembers(String projectId) async {
+  /// Sólo se expone el nombre visible; el correo ya no es una columna
+  /// seleccionable por los clientes (política de privacidad de perfiles).
+  Future<List<(String id, String name, ProjectRole role)>> listMembers(
+    String projectId,
+  ) async {
     final rows = await _client
         .from('project_members')
-        .select('user_id, role, profiles ( display_name, email )')
+        .select('user_id, role, profiles ( display_name )')
         .eq('project_id', projectId);
     return rows.map((r) {
       final map = Map<String, dynamic>.from(r as Map);
@@ -94,7 +97,6 @@ class ProjectsRepository {
       return (
         map['user_id'] as String,
         profile['display_name'] as String? ?? 'Usuario',
-        profile['email'] as String? ?? '',
         ProjectRoleX.from(map['role'] as String? ?? 'viewer'),
       );
     }).toList();

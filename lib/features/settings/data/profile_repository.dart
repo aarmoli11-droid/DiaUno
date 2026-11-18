@@ -37,15 +37,12 @@ class ProfileRepository {
     return user.id;
   }
 
+  /// El perfil propio se lee por RPC: los correos no están expuestos como
+  /// columna seleccionable por los clientes (sólo nombre, avatar e id).
   Future<UserProfile?> getProfile() async {
-    final row = await _client
-        .from('profiles')
-        .select()
-        .eq('id', _userId)
-        .maybeSingle();
-    return row == null
-        ? null
-        : UserProfile.fromMap(Map<String, dynamic>.from(row));
+    final rows = await _client.rpc('get_my_profile');
+    if (rows is! List || rows.isEmpty) return null;
+    return UserProfile.fromMap(Map<String, dynamic>.from(rows.first as Map));
   }
 
   Future<void> updateDisplayName(String name) async {

@@ -583,10 +583,10 @@ class _MembersTab extends ConsumerWidget {
                 child: Icon(Icons.person_outline, size: 18),
               ),
               title: Text(m.$2, style: Theme.of(context).textTheme.bodyMedium),
-              subtitle: Text(m.$3.isNotEmpty ? m.$3 : m.$4.name),
-              trailing: canManage && m.$4 != ProjectRole.owner
+              subtitle: Text('Rol: ${m.$3.name}'),
+              trailing: canManage && m.$3 != ProjectRole.owner
                   ? DropdownButton<ProjectRole>(
-                      value: m.$4,
+                      value: m.$3,
                       items: ProjectRole.values
                           .where((r) => r != ProjectRole.owner)
                           .map(
@@ -603,7 +603,7 @@ class _MembersTab extends ConsumerWidget {
                         } catch (_) {}
                       },
                     )
-                  : StatusChip(label: m.$4.name, tone: StateTone.accent),
+                  : StatusChip(label: m.$3.name, tone: StateTone.accent),
             ),
           ),
           if (canManage) ...[

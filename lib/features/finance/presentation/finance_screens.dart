@@ -9,6 +9,7 @@ import '../../../core/utils/date_x.dart';
 import '../../../core/utils/money_x.dart';
 import '../../../shared/widgets/async_view.dart';
 import '../../auth/application/auth_controller.dart';
+import '../../projects/application/projects_controller.dart';
 import '../application/finance_controller.dart';
 import '../domain/finance.dart';
 
@@ -679,10 +680,16 @@ class DistributionScreen extends ConsumerStatefulWidget {
 }
 
 class _DistributionScreenState extends ConsumerState<DistributionScreen> {
-  final _entries = <(String label, double value)>[];
-  final _label = TextEditingController();
+  final _entries =
+      <(String label, double value, String? projectId, String? userId)>[];
   final _value = TextEditingController();
+  final _search = TextEditingController();
   DistributionMode _mode = DistributionMode.equal;
+  bool _targetIsProject = true;
+  String? _selectedId;
+  String? _selectedName;
+  List<(String id, String name)> _profiles = [];
+  bool _searching = false;
   double _total = 0;
   bool _loaded = false;
   bool _saving = false;
@@ -719,39 +726,67 @@ class _DistributionScreenState extends ConsumerState<DistributionScreen> {
 
   @override
   void dispose() {
-    _label.dispose();
     _value.dispose();
+    _search.dispose();
     super.dispose();
   }
 
-  void _addEntry() {
-    final label = _label.text.trim();
-    final value = double.tryParse(_value.text.replaceAll(',', '.'));
-    if (label.isEmpty || value == null) return;
+  Future<void> _searchPeople() async {
+    if (_search.text.trim().length < 2) {
+      setState(() => _profiles = []);
+      return;
+    }
+    setState(() => _searching = true);
+    try {
+      final found = await ref
+          .read(financeRepositoryProvider)
+          .searchDistributionProfiles(_search.text);
+      if (mounted) setState(() => _profiles = found);
+    } catch (_) {
+      if (mounted) setState(() => _profiles = []);
+    } finally {
+      if (mounted) setState(() => _searching = false);
+    }
+  }
+
+  void _switchTarget(bool toProject) {
     setState(() {
-      _entries.add((label, value));
-      _label.clear();
+      _targetIsProject = toProject;
+      _selectedId = null;
+      _selectedName = null;
+      _profiles = [];
+      _search.clear();
+    });
+  }
+
+  void _addEntry() {
+    final value = _mode == DistributionMode.equal
+        ? 1.0
+        : double.tryParse(_value.text.replaceAll(',', '.'));
+    final id = _selectedId;
+    final name = _selectedName;
+    if (id == null || name == null || value == null || value <= 0) return;
+    setState(() {
+      _entries.add((
+        name,
+        value,
+        _targetIsProject ? id : null,
+        _targetIsProject ? null : id,
+      ));
+      _selectedId = null;
+      _selectedName = null;
       _value.clear();
     });
   }
 
-  List<({String? projectId, String? userId, double value})> _toShares(
-    List<DistributionShare> shares,
-  ) {
-    // La UI usa etiquetas legibles; el backend exige ids. Para la versión 1 se
-    // guardan como proyecto cuando la etiqueta coincide con un id UUID.
-    return shares
-        .map(
-          (s) => (
-            projectId: RegExp(r'^[0-9a-f-]{36}$').hasMatch(s.label)
-                ? s.label
-                : null,
-            userId: null,
-            value: s.value,
-          ),
-        )
-        .toList();
-  }
+  List<(String, double)> get _calculationEntries =>
+      _entries.map((e) => (e.$1, e.$2)).toList();
+
+  /// Ids reales: el backend rechaza filas sin proyecto ni persona.
+  List<({String? projectId, String? userId, double value})> get _shares =>
+      _entries
+          .map((e) => (projectId: e.$3, userId: e.$4, value: e.$2))
+          .toList();
 
   Future<void> _save() async {
     setState(() {
@@ -762,15 +797,26 @@ class _DistributionScreenState extends ConsumerState<DistributionScreen> {
       final shares = calculateDistribution(
         total: _total,
         mode: _mode,
-        entries: _entries,
+        entries: _calculationEntries,
       );
+      // Validación local adicional: nunca enviar destinatarios sin id real.
+      if (shares.length != _shares.length ||
+          _shares.any(
+            (s) =>
+                (s.projectId == null && s.userId == null) ||
+                (s.projectId != null && s.userId != null),
+          )) {
+        throw const ValidationFailure(
+          'Cada participante debe ser un proyecto o una persona real.',
+        );
+      }
       await ref
           .read(financeActionsProvider.notifier)
           .saveDistribution(
             sourceType: widget.sourceType,
             sourceId: widget.sourceId,
             mode: _mode,
-            shares: _toShares(shares),
+            shares: _shares,
           );
       if (mounted) context.pop();
     } on ValidationFailure catch (e) {
@@ -780,6 +826,75 @@ class _DistributionScreenState extends ConsumerState<DistributionScreen> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  Widget _projectPicker() {
+    final projects = ref.watch(projectsProvider);
+    return AsyncView(
+      value: projects,
+      onRetry: () => ref.invalidate(projectsProvider),
+      builder: (context, list) => DropdownButtonFormField<String>(
+        decoration: const InputDecoration(
+          labelText: 'Proyecto',
+          prefixIcon: Icon(Icons.folder_outlined),
+        ),
+        initialValue: _selectedId,
+        items: [
+          for (final p in list)
+            DropdownMenuItem<String>(value: p.id, child: Text(p.name)),
+        ],
+        onChanged: (v) {
+          String? name;
+          for (final p in list) {
+            if (p.id == v) name = p.name;
+          }
+          setState(() {
+            _selectedId = v;
+            _selectedName = name;
+          });
+        },
+      ),
+    );
+  }
+
+  Widget _personPicker() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextField(
+          controller: _search,
+          decoration: const InputDecoration(
+            labelText: 'Buscar persona por nombre visible',
+            prefixIcon: Icon(Icons.search),
+          ),
+          onChanged: (_) => _searchPeople(),
+        ),
+        if (_searching)
+          const Padding(
+            padding: EdgeInsets.only(top: AppSpacing.sm),
+            child: LinearProgressIndicator(),
+          ),
+        if (_profiles.isNotEmpty)
+          DropdownButtonFormField<String>(
+            decoration: const InputDecoration(labelText: 'Persona'),
+            initialValue: _selectedId,
+            items: [
+              for (final p in _profiles)
+                DropdownMenuItem<String>(value: p.$1, child: Text(p.$2)),
+            ],
+            onChanged: (v) {
+              String? name;
+              for (final p in _profiles) {
+                if (p.$1 == v) name = p.$2;
+              }
+              setState(() {
+                _selectedId = v;
+                _selectedName = name;
+              });
+            },
+          ),
+      ],
+    );
   }
 
   @override
@@ -793,7 +908,7 @@ class _DistributionScreenState extends ConsumerState<DistributionScreen> {
       preview = calculateDistribution(
         total: _total,
         mode: _mode,
-        entries: _entries,
+        entries: _calculationEntries,
       );
     } on ValidationFailure catch (e) {
       previewError = e.message;
@@ -821,19 +936,29 @@ class _DistributionScreenState extends ConsumerState<DistributionScreen> {
                   onSelectionChanged: (v) => setState(() => _mode = v.first),
                 ),
                 const SizedBox(height: AppSpacing.lg),
+                const Text('Destinatario real'),
+                const SizedBox(height: AppSpacing.sm),
+                SegmentedButton<bool>(
+                  segments: const [
+                    ButtonSegment(
+                      value: true,
+                      label: Text('Proyecto'),
+                      icon: Icon(Icons.folder_outlined),
+                    ),
+                    ButtonSegment(
+                      value: false,
+                      label: Text('Persona'),
+                      icon: Icon(Icons.person_outline),
+                    ),
+                  ],
+                  selected: {_targetIsProject},
+                  onSelectionChanged: (v) => _switchTarget(v.first),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                if (_targetIsProject) _projectPicker() else _personPicker(),
+                const SizedBox(height: AppSpacing.md),
                 Row(
                   children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _label,
-                        decoration: InputDecoration(
-                          labelText: _mode == DistributionMode.equal
-                              ? 'Participante / proyecto'
-                              : 'Participante',
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
                     SizedBox(
                       width: 110,
                       child: TextField(
@@ -851,9 +976,10 @@ class _DistributionScreenState extends ConsumerState<DistributionScreen> {
                         ),
                       ),
                     ),
+                    const SizedBox(width: AppSpacing.sm),
                     IconButton.filled(
                       tooltip: 'Añadir',
-                      onPressed: _addEntry,
+                      onPressed: _selectedId == null ? null : _addEntry,
                       icon: const Icon(Icons.add),
                     ),
                   ],

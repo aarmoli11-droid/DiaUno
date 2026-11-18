@@ -25,7 +25,7 @@ final projectDetailProvider = FutureProvider.family<Project, String>((
 
 final projectMembersProvider =
     FutureProvider.family<
-      List<(String id, String name, String email, ProjectRole role)>,
+      List<(String id, String name, ProjectRole role)>,
       String
     >((ref, id) async {
       return ref.watch(projectsRepositoryProvider).listMembers(id);
