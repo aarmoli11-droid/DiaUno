@@ -13,9 +13,11 @@ Aplicación personal multiplataforma para organizar proyectos, tareas, agenda, f
 | Supabase CLI | 2.113.0 |
 | Git | 2.56.0.windows.4 |
 
-Plataformas generadas: Android, iOS, Web, Windows, macOS y Linux. Las comprobaciones automáticas se ejecutaron en Web y Windows. Android requiere aceptar licencias del SDK antes de compilar.
+Plataformas generadas: Android, iOS, Web, Windows, macOS y Linux. Las comprobaciones automáticas se ejecutaron en Web, Windows y Android (emulador x86_64).
 
 > Nota Windows: si la ruta del proyecto contiene caracteres no ASCII (por ejemplo `DíaUno`), el toolchain de Flutter/Windows puede perder la codificación al invocar MSBuild. Como workaround verificado, compila desde una unión (junction) con ruta ASCII, por ejemplo `C:\tmp\diauno`. No afecta al código fuente ni al ejecutable resultante.
+
+> Nota Android: AGP rechaza por defecto las rutas con caracteres no ASCII en Windows. Como la ruta destino es obligatoria, `android/gradle.properties` incluye `android.overridePathCheck=true`; con ello `flutter build apk --debug` y `flutter run` funcionan desde la carpeta original. No desactiva ninguna comprobación de código ni de permisos.
 
 ## Configuración
 
