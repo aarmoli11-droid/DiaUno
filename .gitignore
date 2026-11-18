@@ -33,6 +33,12 @@ migrate_working_dir/
 /build/
 /coverage/
 
+# Local secrets and Supabase CLI state
+.env
+.env.*
+!.env.example
+.supabase/
+
 # Symbolication related
 app.*.symbols
 
