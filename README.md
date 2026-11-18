@@ -2,7 +2,7 @@
 
 Aplicación personal multiplataforma para organizar proyectos, tareas, agenda, finanzas compartidas, tiempo y un jardín ligero de progreso.
 
-> Nombre temporal centralizado en `lib/core/brand.dart`. El repositorio se llama `PLAN` por razones históricas; esa cadena no se usa como marca.
+> Nombre centralizado en `lib/core/brand.dart`. El repositorio se creó como `PLAN` y GitHub lo renombró a `DiaUno`; esa cadena no se usa como marca.
 
 ## Requisitos verificados
 
@@ -14,6 +14,8 @@ Aplicación personal multiplataforma para organizar proyectos, tareas, agenda, f
 | Git | 2.56.0.windows.4 |
 
 Plataformas generadas: Android, iOS, Web, Windows, macOS y Linux. Las comprobaciones automáticas se ejecutaron en Web y Windows. Android requiere aceptar licencias del SDK antes de compilar.
+
+> Nota Windows: si la ruta del proyecto contiene caracteres no ASCII (por ejemplo `DíaUno`), el toolchain de Flutter/Windows puede perder la codificación al invocar MSBuild. Como workaround verificado, compila desde una unión (junction) con ruta ASCII, por ejemplo `C:\tmp\diauno`. No afecta al código fuente ni al ejecutable resultante.
 
 ## Configuración
 
