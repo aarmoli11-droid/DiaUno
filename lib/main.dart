@@ -14,11 +14,7 @@ Future<void> main() async {
   if (Env.isConfigured) {
     await Supabase.initialize(
       url: Env.supabaseUrl,
-      publishableKey: Env.supabasePublishableKey.isNotEmpty
-          ? Env.supabasePublishableKey
-          : null,
-      // ignore: deprecated_member_use
-      anonKey: Env.supabaseAnonKey.isNotEmpty ? Env.supabaseAnonKey : null,
+      publishableKey: Env.apiKey,
       debug: false,
     );
   }
@@ -35,13 +31,12 @@ class DiaUnoApp extends ConsumerWidget {
       return MaterialApp(
         title: 'Configuración pendiente',
         theme: AppTheme.light(),
-        home: const Scaffold(
+        home: Scaffold(
           body: Center(
             child: Padding(
-              padding: EdgeInsets.all(24),
+              padding: const EdgeInsets.all(24),
               child: Text(
-                'Faltan las variables de Supabase. Ejecuta la app con '
-                '--dart-define-from-file=.env.local (consulta README.md).',
+                Env.configurationMessage,
                 textAlign: TextAlign.center,
               ),
             ),

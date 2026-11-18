@@ -21,6 +21,7 @@ import '../../shared/widgets/app_shell.dart';
 final routerProvider = Provider<GoRouter>((ref) {
   final refresh = ValueNotifier<int>(0);
   ref.listen(authSessionProvider, (_, _) => refresh.value++);
+  ref.listen(passwordRecoveryProvider, (_, _) => refresh.value++);
   ref.onDispose(refresh.dispose);
   return GoRouter(
     initialLocation: '/home',
@@ -29,6 +30,14 @@ final routerProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final loggedIn = ref.read(supabaseProvider).auth.currentSession != null;
       final onAuth = state.matchedLocation.startsWith('/auth');
+      final recovery = ref.read(passwordRecoveryProvider);
+      final onNewPassword = state.matchedLocation == '/auth/new-password';
+
+      // Una sesión de recovery es válida pero no debe enviarse a /home:
+      // Primero hay que guardar la nueva contraseña.
+      if (recovery) {
+        return onNewPassword ? null : '/auth/new-password';
+      }
       if (!loggedIn && !onAuth) return '/auth/welcome';
       if (loggedIn && onAuth) return '/home';
       return null;
@@ -64,7 +73,12 @@ final routerProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(
         path: '/auth',
-        redirect: (_, _) => '/auth/welcome',
+        redirect: (_, state) {
+          // La rama `/auth` no debe secuestrar la pantalla de nueva contraseña;
+          // el redirect global ya garantiza que sólo se alcance en recovery.
+          if (state.uri.path == '/auth/new-password') return null;
+          return '/auth/welcome';
+        },
         routes: [
           GoRoute(path: 'welcome', builder: (_, _) => const WelcomeScreen()),
           GoRoute(path: 'login', builder: (_, _) => const LoginScreen()),
@@ -72,6 +86,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'reset',
             builder: (_, _) => const ResetPasswordScreen(),
+          ),
+          GoRoute(
+            path: 'new-password',
+            builder: (_, _) => const NewPasswordScreen(),
           ),
         ],
       ),

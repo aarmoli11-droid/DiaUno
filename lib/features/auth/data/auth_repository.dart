@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/config/env.dart';
 import '../../../core/errors/app_failure.dart';
 
 class AuthRepository {
@@ -41,6 +42,7 @@ class AuthRepository {
       final response = await _client.auth.signUp(
         email: email.trim(),
         password: password,
+        emailRedirectTo: Env.authRedirectUrl,
         data: {'display_name': displayName.trim()},
       );
       return response.user;
@@ -63,7 +65,10 @@ class AuthRepository {
 
   Future<void> resetPassword(String email) async {
     try {
-      await _client.auth.resetPasswordForEmail(email.trim());
+      await _client.auth.resetPasswordForEmail(
+        email.trim(),
+        redirectTo: Env.authRedirectUrl,
+      );
     } on AuthException catch (e) {
       throw AuthFailure(_friendlyAuthMessage(e.message));
     } catch (_) {

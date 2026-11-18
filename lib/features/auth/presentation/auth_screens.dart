@@ -342,7 +342,8 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
       formKey: _formKey,
       error: _error,
       notice: _sent
-          ? 'Enlace enviado. Revisa tu correo y vuelve a iniciar sesión.'
+          ? 'Enlace enviado. Abre el correo en este dispositivo y pulsa el enlace '
+                'para elegir una contraseña nueva.'
           : null,
       loading: ref.watch(authActionsProvider),
       onSubmit: _submit,
@@ -360,6 +361,96 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
         TextButton(
           onPressed: () => context.go('/auth/login'),
           child: const Text('Volver al inicio de sesión'),
+        ),
+      ],
+    );
+  }
+}
+
+/// Pantalla que se muestra sólo mientras hay una sesión de `passwordRecovery`.
+/// El enlace de Supabase ya ha validado el token; aquí sólo se guarda la clave.
+class NewPasswordScreen extends ConsumerStatefulWidget {
+  const NewPasswordScreen({super.key});
+
+  @override
+  ConsumerState<NewPasswordScreen> createState() => _NewPasswordScreenState();
+}
+
+class _NewPasswordScreenState extends ConsumerState<NewPasswordScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _password = TextEditingController();
+  final _confirm = TextEditingController();
+  String? _error;
+
+  @override
+  void dispose() {
+    _password.dispose();
+    _confirm.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _error = null);
+    try {
+      await ref
+          .read(authActionsProvider.notifier)
+          .updatePassword(_password.text);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Contraseña actualizada. Entra con tu nueva contraseña.',
+          ),
+        ),
+      );
+      context.go('/auth/login');
+    } catch (e) {
+      setState(() => _error = e.toString());
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AuthFormScaffold(
+      title: 'Nueva contraseña',
+      subtitle:
+          'El enlace de recuperación es válido. Elige una contraseña nueva.',
+      formKey: _formKey,
+      error: _error,
+      loading: ref.watch(authActionsProvider),
+      onSubmit: _submit,
+      fields: [
+        TextFormField(
+          controller: _password,
+          obscureText: true,
+          autofillHints: const [AutofillHints.newPassword],
+          decoration: const InputDecoration(
+            labelText: 'Nueva contraseña',
+            prefixIcon: Icon(Icons.lock_outline),
+          ),
+          validator: (v) =>
+              v == null || v.length < 6 ? 'Mínimo 6 caracteres' : null,
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        TextFormField(
+          controller: _confirm,
+          obscureText: true,
+          decoration: const InputDecoration(
+            labelText: 'Repite la contraseña',
+            prefixIcon: Icon(Icons.lock_reset_outlined),
+          ),
+          validator: (v) =>
+              v != _password.text ? 'Las contraseñas no coinciden' : null,
+        ),
+      ],
+      footer: [
+        TextButton(
+          onPressed: () async {
+            await ref.read(authActionsProvider.notifier).signOut();
+            if (context.mounted) context.go('/auth/welcome');
+          },
+          child: const Text('Cancelar y volver al inicio'),
         ),
       ],
     );
