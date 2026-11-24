@@ -8,35 +8,25 @@ class GardenRepository {
 
   final SupabaseClient _client;
 
+  /// El embed debe ir sin espacios: `projects ( name )` hace que PostgREST
+  /// ignore la proyección y devuelva todas las columnas sin el nombre.
+  static const _columns =
+      'id, project_id, points, flower_type, event_type, created_at, projects(name)';
+
   Future<List<GardenEvent>> listEvents({String? projectId}) async {
     try {
-      var query = _client.from('garden_progress_events').select('''
-        id, project_id, points, flower_type, event_type, created_at,
-        projects ( name )
-      ''');
+      var query = _client.from('garden_progress_events').select(_columns);
       if (projectId != null) query = query.eq('project_id', projectId);
       final rows = await query.order('created_at', ascending: false).limit(200);
-      return rows.map((r) {
-        final map = Map<String, dynamic>.from(r as Map);
-        final event = GardenEvent.fromMap(map);
-        final project =
-            map['projects'] is List && (map['projects'] as List).isNotEmpty
-            ? Map<String, dynamic>.from((map['projects'] as List).first as Map)
-            : <String, dynamic>{};
-        return GardenEvent(
-          id: event.id,
-          projectId: event.projectId,
-          points: event.points,
-          flowerType: event.flowerType,
-          eventType: event.eventType,
-          createdAt: event.createdAt,
-          projectName: project['name'] as String?,
-        );
-      }).toList();
+      return rows
+          .map((r) => GardenEvent.fromMap(Map<String, dynamic>.from(r as Map)))
+          .toList();
     } on AppFailure {
       rethrow;
-    } catch (_) {
-      throw const ServerFailure('No se pudo cargar el jardín.');
+    } catch (e) {
+      // Se conserva la excepción original para no enmascarar fallos de
+      // serialización, permisos o consulta detrás de un mensaje genérico.
+      throw ServerFailure('No se pudo cargar el jardín: $e', code: 'garden');
     }
   }
 }

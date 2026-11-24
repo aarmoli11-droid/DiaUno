@@ -38,7 +38,7 @@ class GardenRules {
 class GardenEvent {
   const GardenEvent({
     required this.id,
-    required this.projectId,
+    this.projectId,
     required this.points,
     required this.flowerType,
     required this.eventType,
@@ -47,6 +47,8 @@ class GardenEvent {
   });
 
   final String id;
+
+  /// Null para eventos de tareas personales, que no pertenecen a un proyecto.
   final String? projectId;
   final int points;
   final String? flowerType;
@@ -54,13 +56,26 @@ class GardenEvent {
   final DateTime createdAt;
   final String? projectName;
 
-  factory GardenEvent.fromMap(Map<String, dynamic> map) => GardenEvent(
-    id: map['id'] as String,
-    projectId: map['project_id'] as String?,
-    points: (map['points'] as num).toInt(),
-    flowerType: map['flower_type'] as String?,
-    eventType: map['event_type'] as String,
-    createdAt: DateTime.parse(map['created_at'] as String),
-    projectName: map['name'] as String?,
-  );
+  factory GardenEvent.fromMap(Map<String, dynamic> map) {
+    // PostgREST embebe una relación muchos-a-uno como objeto; versiones
+    // anteriores devolvían una lista. Los eventos personales no tienen
+    // proyecto, así que el embed llega como null o vacío.
+    Map<String, dynamic> project = const <String, dynamic>{};
+    final embedded = map['projects'];
+    if (embedded is Map) {
+      project = Map<String, dynamic>.from(embedded);
+    } else if (embedded is List && embedded.isNotEmpty) {
+      project = Map<String, dynamic>.from(embedded.first as Map);
+    }
+
+    return GardenEvent(
+      id: map['id'] as String,
+      projectId: map['project_id'] as String?,
+      points: (map['points'] as num).toInt(),
+      flowerType: map['flower_type'] as String?,
+      eventType: map['event_type'] as String,
+      createdAt: DateTime.parse(map['created_at'] as String),
+      projectName: (project['name'] ?? map['name']) as String?,
+    );
+  }
 }
