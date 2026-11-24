@@ -53,7 +53,7 @@ class PasswordRecoveryController extends Notifier<bool> {
 
 final currentUserProvider = Provider((ref) {
   final session = ref.watch(authSessionProvider).value;
-  return session?.user ?? ref.read(supabaseProvider).auth.currentUser;
+  return session?.user ?? ref.read(authRepositoryProvider).currentUser;
 });
 
 final authActionsProvider = NotifierProvider<AuthActions, bool>(
@@ -111,5 +111,12 @@ class AuthActions extends Notifier<bool> {
     }
   }
 
-  Future<void> signOut() => ref.read(authRepositoryProvider).signOut();
+  Future<void> signOut() async {
+    state = true;
+    try {
+      await ref.read(authRepositoryProvider).signOut();
+    } finally {
+      state = false;
+    }
+  }
 }

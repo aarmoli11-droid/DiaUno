@@ -7,7 +7,11 @@ import '../../core/theme/tokens.dart';
 
 /// Estado de sincronización siempre visible cuando hay algo que comunicar.
 class SyncBanner extends ConsumerWidget {
-  const SyncBanner({super.key});
+  const SyncBanner({super.key, required this.visible});
+
+  /// Lo calcula el shell para poder quitar el `SafeArea` superior de la pantalla
+  /// cuando el aviso ocupa ese hueco; así no se duplica el padding en móvil.
+  final bool visible;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -17,7 +21,7 @@ class SyncBanner extends ConsumerWidget {
     final pending = store?.pending().length ?? 0;
     final conflicts = store?.conflicts().length ?? 0;
 
-    if (online && pending == 0 && conflicts == 0) {
+    if (!visible || (online && pending == 0 && conflicts == 0)) {
       return const SizedBox.shrink();
     }
 
@@ -32,33 +36,47 @@ class SyncBanner extends ConsumerWidget {
         ? '$conflicts conflicto(s) de sincronización requieren tu decisión'
         : 'Sincronizando $pending cambio(s)…';
 
+    final topInset = MediaQuery.paddingOf(context).top;
     return Material(
       color: color.withValues(alpha: 0.12),
       child: InkWell(
         onTap: () => context.push('/settings/sync'),
-        child: SafeArea(
-          bottom: false,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.lg,
-              vertical: AppSpacing.sm,
-            ),
-            child: Row(
-              children: [
-                Icon(icon, size: 17, color: color),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Text(
-                    text,
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodySmall?.copyWith(color: color),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < 420;
+            return Padding(
+              padding: EdgeInsets.fromLTRB(
+                AppSpacing.lg,
+                topInset + AppSpacing.xs,
+                AppSpacing.lg,
+                AppSpacing.xs,
+              ),
+              child: Row(
+                children: [
+                  Icon(icon, size: 17, color: color),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Text(
+                      compact
+                          ? (text.split('·').first.trim().isEmpty
+                                ? text
+                                : text.split('·').first.trim())
+                          : text,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.copyWith(color: color),
+                    ),
                   ),
-                ),
-                Icon(Icons.chevron_right, size: 18, color: color),
-              ],
-            ),
-          ),
+                  if (!compact) ...[
+                    const SizedBox(width: AppSpacing.xs),
+                    Icon(Icons.chevron_right, size: 18, color: color),
+                  ],
+                ],
+              ),
+            );
+          },
         ),
       ),
     );

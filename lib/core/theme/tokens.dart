@@ -17,6 +17,7 @@ class Palette {
     required this.error,
     required this.onSurface,
     required this.navBackground,
+    required this.navSelected,
     required this.navInactive,
     required this.scrim,
   });
@@ -35,6 +36,7 @@ class Palette {
   final Color error;
   final Color onSurface;
   final Color navBackground;
+  final Color navSelected;
   final Color navInactive;
   final Color scrim;
 
@@ -51,7 +53,7 @@ enum StateTone { neutral, success, warning, error, accent }
 
 class AppColors {
   static const Palette light = Palette(
-    background: Color(0xFFF6F8F5),
+    background: Color(0xFFFFFFFF),
     surface: Color(0xFFFFFFFF),
     surfaceMuted: Color(0xFFEEF2ED),
     text: Color(0xFF152019),
@@ -64,13 +66,14 @@ class AppColors {
     warning: Color(0xFF9A6708),
     error: Color(0xFFB23B3B),
     onSurface: Color(0xFF152019),
-    navBackground: Color(0xFF18251D),
-    navInactive: Color(0xFFB6C4BA),
+    navBackground: Colors.transparent,
+    navSelected: Color(0xFF2E6B4E),
+    navInactive: Color(0xFF536159),
     scrim: Color(0x66101A13),
   );
 
   static const Palette dark = Palette(
-    background: Color(0xFF101713),
+    background: Color(0xFF000000),
     surface: Color(0xFF18221C),
     surfaceMuted: Color(0xFF212E26),
     text: Color(0xFFEFF4EF),
@@ -83,8 +86,9 @@ class AppColors {
     warning: Color(0xFFE0B45F),
     error: Color(0xFFF09090),
     onSurface: Color(0xFFEFF4EF),
-    navBackground: Color(0xFF0A100C),
-    navInactive: Color(0xFF9AABA0),
+    navBackground: Colors.transparent,
+    navSelected: Color(0xFF7FC5A0),
+    navInactive: Color(0xFFA9B8AE),
     scrim: Color(0x99000000),
   );
 }

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/providers/core_providers.dart';
 import '../../features/agenda/presentation/agenda_screen.dart';
 import '../../features/auth/application/auth_controller.dart';
 import '../../features/auth/presentation/auth_screens.dart';
@@ -12,6 +11,7 @@ import '../../features/home/presentation/home_screen.dart';
 import '../../features/notifications/presentation/notifications_screen.dart';
 import '../../features/projects/presentation/projects_screens.dart';
 import '../../features/search/presentation/search_screen.dart';
+import '../../features/settings/presentation/profile_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
 import '../../features/shared/presentation/shared_screen.dart';
 import '../../features/tasks/presentation/task_screens.dart';
@@ -28,7 +28,7 @@ final routerProvider = Provider<GoRouter>((ref) {
     debugLogDiagnostics: false,
     refreshListenable: refresh,
     redirect: (context, state) {
-      final loggedIn = ref.read(supabaseProvider).auth.currentSession != null;
+      final loggedIn = ref.read(authRepositoryProvider).currentSession != null;
       final onAuth = state.matchedLocation.startsWith('/auth');
       final recovery = ref.read(passwordRecoveryProvider);
       final onNewPassword = state.matchedLocation == '/auth/new-password';
@@ -74,10 +74,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/auth',
         redirect: (_, state) {
-          // La rama `/auth` no debe secuestrar la pantalla de nueva contraseña;
-          // el redirect global ya garantiza que sólo se alcance en recovery.
-          if (state.uri.path == '/auth/new-password') return null;
-          return '/auth/welcome';
+          // El redirect de un GoRoute también se aplica a sus subrutas. Sólo
+          // normalizamos la ruta base: redirigir cualquier hija a welcome
+          // impedía abrir login, register, reset y new-password.
+          if (state.uri.path == '/auth') return '/auth/welcome';
+          return null;
         },
         routes: [
           GoRoute(path: 'welcome', builder: (_, _) => const WelcomeScreen()),
@@ -161,6 +162,14 @@ final routerProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(
             routes: [
               GoRoute(path: '/garden', builder: (_, _) => const GardenScreen()),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/profile',
+                builder: (_, _) => const ProfileScreen(),
+              ),
             ],
           ),
         ],

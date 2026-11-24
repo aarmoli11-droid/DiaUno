@@ -195,7 +195,9 @@ ThemeData _build(Palette p, Brightness brightness) {
     ),
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: p.navBackground,
-      indicatorColor: p.primary,
+      indicatorColor: Colors.transparent,
+      shadowColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
     ),
     dividerTheme: DividerThemeData(color: p.border, space: 1, thickness: 1),
     tooltipTheme: TooltipThemeData(

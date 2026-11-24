@@ -276,13 +276,46 @@ class _SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.md),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(title, style: Theme.of(context).textTheme.titleLarge),
-          if (action != null)
-            TextButton(onPressed: onAction, child: Text(action!)),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 420;
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style:
+                      (compact
+                              ? Theme.of(context).textTheme.titleMedium
+                              : Theme.of(context).textTheme.titleLarge)
+                          ?.copyWith(color: paletteFor(context).text),
+                ),
+              ),
+              if (action != null)
+                TextButton(
+                  style: TextButton.styleFrom(
+                    minimumSize: Size.zero,
+                    tapTargetSize: compact
+                        ? MaterialTapTargetSize.shrinkWrap
+                        : null,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: compact ? AppSpacing.xs : AppSpacing.md,
+                    ),
+                  ),
+                  onPressed: onAction,
+                  child: Text(
+                    action!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+            ],
+          );
+        },
       ),
     );
   }

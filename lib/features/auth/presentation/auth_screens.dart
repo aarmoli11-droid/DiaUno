@@ -242,7 +242,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             password: _password.text,
           );
       if (!mounted) return;
-      if (ref.read(supabaseProvider).auth.currentSession != null) {
+      if (ref.read(authRepositoryProvider).currentSession != null) {
         context.go('/home');
       } else {
         setState(

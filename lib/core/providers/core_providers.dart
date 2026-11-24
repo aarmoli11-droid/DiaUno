@@ -38,6 +38,21 @@ final isOnlineProvider = Provider<bool>(
   (ref) => ref.watch(connectivityProvider).value ?? true,
 );
 
+/// Se incrementa cuando una mutación afecta a varias pantallas a la vez.
+/// `homeDataProvider` lo observa para no depender de imports circulares entre
+/// los controladores de cada módulo.
+final appDataRevisionProvider =
+    NotifierProvider<AppDataRevisionController, int>(
+      AppDataRevisionController.new,
+    );
+
+class AppDataRevisionController extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  void bump() => state++;
+}
+
 final themeModeProvider = AsyncNotifierProvider<ThemeModeController, ThemeMode>(
   ThemeModeController.new,
 );

@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/providers/core_providers.dart';
 import '../../../core/utils/date_x.dart';
 import '../../agenda/application/agenda_controller.dart';
 import '../../agenda/data/agenda_repository.dart';
@@ -34,6 +35,9 @@ Future<T> _safe<T>(Future<T> future, T fallback) =>
     future.catchError((_) => fallback);
 
 final homeDataProvider = FutureProvider<HomeData>((ref) async {
+  // Cualquier mutación compartida (tarea, proyecto o finanza) fuerza una
+  // recarga del resumen del inicio.
+  ref.watch(appDataRevisionProvider);
   final today = Date.today();
   final tasksRepo = ref.watch(tasksRepositoryProvider);
   final agendaRepo = ref.watch(agendaRepositoryProvider);

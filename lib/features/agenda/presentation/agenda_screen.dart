@@ -171,19 +171,35 @@ class _AgendaScreenState extends ConsumerState<AgendaScreen> {
                   AppSpacing.lg,
                   AppSpacing.md,
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      DateFormat('EEEE, d MMMM', 'es').format(_selected),
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    TextButton.icon(
-                      onPressed: () => context.push('/agenda/events/new'),
-                      icon: const Icon(Icons.event_available_outlined),
-                      label: const Text('Nuevo evento'),
-                    ),
-                  ],
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final compact = constraints.maxWidth < 420;
+                    return Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            DateFormat('EEEE, d MMMM', 'es').format(_selected),
+                            style: Theme.of(context).textTheme.titleLarge,
+                            maxLines: compact ? 2 : 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        SizedBox(
+                          width: compact ? AppSpacing.xs : AppSpacing.sm,
+                        ),
+                        TextButton.icon(
+                          onPressed: () => context.push('/agenda/events/new'),
+                          icon: Icon(
+                            compact
+                                ? Icons.add
+                                : Icons.event_available_outlined,
+                            size: compact ? 18 : null,
+                          ),
+                          label: Text(compact ? 'Nuevo' : 'Nuevo evento'),
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ),
             ),
