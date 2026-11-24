@@ -39,6 +39,9 @@ migrate_working_dir/
 !.env.example
 .supabase/
 
+# Firebase CLI local state (deployment cache)
+.firebase/
+
 # Symbolication related
 app.*.symbols
 
