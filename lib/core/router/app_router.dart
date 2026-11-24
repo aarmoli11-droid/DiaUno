@@ -18,6 +18,21 @@ import '../../features/tasks/presentation/task_screens.dart';
 import '../../features/time/presentation/time_screen.dart';
 import '../../shared/widgets/app_shell.dart';
 
+/// Guardia global: mantiene a los usuarios sin sesión fuera del área privada
+/// y evita que los usuarios con sesión vuelvan a las pantallas de acceso.
+String? authGuardRedirect({required String location, required bool loggedIn}) {
+  final onAuth = location.startsWith('/auth');
+  if (!loggedIn && !onAuth) return '/auth/welcome';
+  if (loggedIn && onAuth) return '/home';
+  return null;
+}
+
+/// Redirección del contenedor `/auth`: solo la ruta raíz `/auth` debe abrir la
+/// bienvenida. Sus hijas (`/auth/login`, `/auth/register`, `/auth/reset`) deben
+/// conservar su propia ruta.
+String? authShellRedirect(String location) =>
+    location == '/auth' ? '/auth/welcome' : null;
+
 final routerProvider = Provider<GoRouter>((ref) {
   final refresh = ValueNotifier<int>(0);
   ref.listen(authSessionProvider, (_, _) => refresh.value++);
@@ -29,18 +44,19 @@ final routerProvider = Provider<GoRouter>((ref) {
     refreshListenable: refresh,
     redirect: (context, state) {
       final loggedIn = ref.read(authRepositoryProvider).currentSession != null;
-      final onAuth = state.matchedLocation.startsWith('/auth');
-      final recovery = ref.read(passwordRecoveryProvider);
-      final onNewPassword = state.matchedLocation == '/auth/new-password';
 
       // Una sesión de recovery es válida pero no debe enviarse a /home:
       // Primero hay que guardar la nueva contraseña.
+      final recovery = ref.read(passwordRecoveryProvider);
+      final onNewPassword = state.matchedLocation == '/auth/new-password';
       if (recovery) {
         return onNewPassword ? null : '/auth/new-password';
       }
-      if (!loggedIn && !onAuth) return '/auth/welcome';
-      if (loggedIn && onAuth) return '/home';
-      return null;
+
+      return authGuardRedirect(
+        location: state.uri.path,
+        loggedIn: loggedIn,
+      );
     },
     errorBuilder: (context, state) => Scaffold(
       body: Center(
@@ -73,13 +89,7 @@ final routerProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(
         path: '/auth',
-        redirect: (_, state) {
-          // El redirect de un GoRoute también se aplica a sus subrutas. Sólo
-          // normalizamos la ruta base: redirigir cualquier hija a welcome
-          // impedía abrir login, register, reset y new-password.
-          if (state.uri.path == '/auth') return '/auth/welcome';
-          return null;
-        },
+        redirect: (_, state) => authShellRedirect(state.uri.path),
         routes: [
           GoRoute(path: 'welcome', builder: (_, _) => const WelcomeScreen()),
           GoRoute(path: 'login', builder: (_, _) => const LoginScreen()),
