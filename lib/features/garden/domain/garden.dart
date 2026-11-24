@@ -47,7 +47,7 @@ class GardenEvent {
   });
 
   final String id;
-  final String projectId;
+  final String? projectId;
   final int points;
   final String? flowerType;
   final String eventType;
@@ -56,7 +56,7 @@ class GardenEvent {
 
   factory GardenEvent.fromMap(Map<String, dynamic> map) => GardenEvent(
     id: map['id'] as String,
-    projectId: map['project_id'] as String,
+    projectId: map['project_id'] as String?,
     points: (map['points'] as num).toInt(),
     flowerType: map['flower_type'] as String?,
     eventType: map['event_type'] as String,

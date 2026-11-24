@@ -7,6 +7,8 @@ import '../../../core/data/local_store.dart';
 import '../../../core/providers/core_providers.dart';
 import '../../../core/utils/date_x.dart';
 import '../../auth/application/auth_controller.dart';
+import '../../garden/application/garden_controller.dart';
+import '../../projects/application/projects_controller.dart';
 import '../data/tasks_repository.dart';
 import '../domain/task.dart';
 
@@ -64,19 +66,19 @@ class TaskActions extends Notifier<bool> {
 
   Future<TaskItem> create(TaskItem task) async {
     final created = await ref.read(tasksRepositoryProvider).createTask(task);
-    ref.invalidate(taskOccurrencesProvider);
+    _refreshDerivedViews();
     return created;
   }
 
   Future<void> update(TaskItem task) async {
     await ref.read(tasksRepositoryProvider).updateTask(task);
-    ref.invalidate(taskOccurrencesProvider);
     ref.invalidate(taskDetailProvider(task.id));
+    _refreshDerivedViews();
   }
 
   Future<void> delete(String id) async {
     await ref.read(tasksRepositoryProvider).deleteTask(id);
-    ref.invalidate(taskOccurrencesProvider);
+    _refreshDerivedViews();
   }
 
   /// Cambio de estado con soporte offline y detección de conflictos.
@@ -109,7 +111,10 @@ class TaskActions extends Notifier<bool> {
           status,
           expectedUpdatedAt: expectedUpdatedAt,
         );
-    ref.invalidate(taskOccurrencesProvider);
+    // El trigger `task_completion_garden_progress` escribe el evento en la BD;
+    // sin estas invalidaciones el jardín y el progreso del proyecto siguen
+    // mostrando el estado anterior aunque el evento ya exista.
+    _refreshDerivedViews();
   }
 
   Future<void> addComment(String occurrenceId, String body) async {
@@ -140,7 +145,15 @@ class TaskActions extends Notifier<bool> {
     await ref
         .read(tasksRepositoryProvider)
         .materializeOccurrences(taskId, until);
+    _refreshDerivedViews();
+  }
+
+  /// Las ocurrencias alimentan el progreso del proyecto y el jardín.
+  void _refreshDerivedViews() {
     ref.invalidate(taskOccurrencesProvider);
+    ref.invalidate(gardenEventsProvider);
+    ref.invalidate(projectsProvider);
+    ref.read(appDataRevisionProvider.notifier).bump();
   }
 
   Future<String> currentUserId() async =>

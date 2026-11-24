@@ -28,6 +28,7 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen> {
   @override
   Widget build(BuildContext context) {
     final p = paletteFor(context);
+    final currentUserId = ref.watch(currentUserProvider)?.id;
     final transactions = ref.watch(
       transactionsProvider((from: null, to: null)),
     );
@@ -136,10 +137,27 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen> {
                             ? 'Vencido'
                             : 'Cancelado'}',
                       ),
-                      trailing: Text(
-                        '${isIncome ? '+' : '-'}${formatMoney(t.amount, currency: t.currency)}',
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(color: isIncome ? p.success : p.text),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '${isIncome ? '+' : '-'}${formatMoney(t.amount, currency: t.currency)}',
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(
+                                  color: isIncome ? p.success : p.text,
+                                ),
+                          ),
+                          if (t.ownerId == currentUserId) ...[
+                            const SizedBox(width: AppSpacing.xs),
+                            IconButton(
+                              tooltip: 'Eliminar movimiento',
+                              icon: const Icon(Icons.delete_outline, size: 18),
+                              color: p.error,
+                              onPressed: () =>
+                                  _confirmDeleteTransaction(context, ref, t),
+                            ),
+                          ],
+                        ],
                       ),
                     );
                   },
@@ -155,6 +173,55 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen> {
         child: const Icon(Icons.add),
       ),
     );
+  }
+}
+
+Future<void> _confirmDeleteTransaction(
+  BuildContext context,
+  WidgetRef ref,
+  Transaction transaction,
+) async {
+  final p = paletteFor(context);
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('Eliminar movimiento'),
+      content: Text(
+        'Se borrarán también su distribución, comprobantes y notificaciones '
+        'relacionados. Esta acción no se puede deshacer.',
+        style: Theme.of(
+          dialogContext,
+        ).textTheme.bodyMedium?.copyWith(color: p.textSecondary),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, false),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          style: FilledButton.styleFrom(backgroundColor: p.error),
+          onPressed: () => Navigator.pop(dialogContext, true),
+          child: const Text('Eliminar'),
+        ),
+      ],
+    ),
+  );
+  if (confirmed != true || !context.mounted) return;
+  try {
+    await ref
+        .read(financeActionsProvider.notifier)
+        .deleteTransaction(transaction.id);
+    if (context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Movimiento eliminado.')));
+    }
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('No se pudo eliminar: $e')));
+    }
   }
 }
 

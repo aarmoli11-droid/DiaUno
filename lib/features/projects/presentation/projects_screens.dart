@@ -13,6 +13,11 @@ import '../../tasks/domain/task.dart';
 import '../application/projects_controller.dart';
 import '../domain/project.dart';
 
+String _safeError(Object error) {
+  final failure = error is AppFailure ? error : mapPostgrestError(error);
+  return failure.message;
+}
+
 class ProjectsScreen extends ConsumerStatefulWidget {
   const ProjectsScreen({super.key});
 
@@ -313,7 +318,7 @@ Future<void> _showProjectForm(BuildContext context, WidgetRef ref) async {
                 await ref.read(projectActionsProvider.notifier).create(project);
                 if (dialogContext.mounted) Navigator.pop(dialogContext, true);
               } catch (e) {
-                setState(() => error = e.toString());
+                setState(() => error = _safeError(e));
               }
             },
             child: const Text('Crear'),
@@ -407,10 +412,13 @@ Future<void> _editProject(
   WidgetRef ref,
   Project project,
 ) async {
+  final p = paletteFor(context);
   final name = TextEditingController(text: project.name);
   final description = TextEditingController(text: project.description);
   String status = project.status;
   String? error;
+  var deleted = false;
+  final canDelete = project.ownerId == ref.read(currentUserProvider)?.id;
   final ok = await showDialog<bool>(
     context: context,
     builder: (dialogContext) => StatefulBuilder(
@@ -452,6 +460,30 @@ Future<void> _editProject(
           ),
         ),
         actions: [
+          if (canDelete)
+            TextButton(
+              style: TextButton.styleFrom(foregroundColor: p.error),
+              onPressed: () async {
+                final confirmed = await _confirmDeleteProject(
+                  dialogContext,
+                  project.name,
+                );
+                if (!confirmed || !dialogContext.mounted) return;
+                try {
+                  await ref
+                      .read(projectActionsProvider.notifier)
+                      .delete(project.id);
+                  deleted = true;
+                  if (dialogContext.mounted) Navigator.pop(dialogContext, true);
+                  if (context.mounted) context.go('/projects');
+                } catch (e) {
+                  if (dialogContext.mounted) {
+                    setState(() => error = _safeError(e));
+                  }
+                }
+              },
+              child: const Text('Eliminar'),
+            ),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
             child: const Text('Cancelar'),
@@ -485,7 +517,7 @@ Future<void> _editProject(
                       'Otro dispositivo cambió este proyecto. Se guardó un conflicto para que decidas.',
                 );
               } catch (e) {
-                setState(() => error = e.toString());
+                setState(() => error = _safeError(e));
               }
             },
             child: const Text('Guardar'),
@@ -494,9 +526,38 @@ Future<void> _editProject(
       ),
     ),
   );
-  if (ok == true && context.mounted) {
+  if (ok == true && !deleted && context.mounted) {
     ref.invalidate(projectDetailProvider(project.id));
   }
+}
+
+Future<bool> _confirmDeleteProject(BuildContext context, String name) async {
+  final p = paletteFor(context);
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: Text('Eliminar “$name”?'),
+      content: Text(
+        'Se borrarán también sus tareas, finanzas, comprobantes y eventos del '
+        'jardín. Esta acción no se puede deshacer.',
+        style: Theme.of(
+          dialogContext,
+        ).textTheme.bodyMedium?.copyWith(color: p.textSecondary),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, false),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          style: FilledButton.styleFrom(backgroundColor: p.error),
+          onPressed: () => Navigator.pop(dialogContext, true),
+          child: const Text('Eliminar'),
+        ),
+      ],
+    ),
+  );
+  return confirmed ?? false;
 }
 
 class _ProjectTasks extends ConsumerWidget {
@@ -697,7 +758,7 @@ Future<void> _invite(
                           .addMember(projectId, selected!.$1, selected!.$2);
                       if (dialogContext.mounted) Navigator.pop(dialogContext);
                     } catch (e) {
-                      setState(() => error = e.toString());
+                      setState(() => error = _safeError(e));
                     }
                   },
             child: const Text('Añadir'),
@@ -823,7 +884,7 @@ Future<void> _addTool(
                     );
                 if (dialogContext.mounted) Navigator.pop(dialogContext);
               } catch (e) {
-                setState(() => error = e.toString());
+                setState(() => error = _safeError(e));
               }
             },
             child: const Text('Guardar'),

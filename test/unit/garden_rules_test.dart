@@ -17,4 +17,20 @@ void main() {
     expect(GardenRules.treeStage(55), 3);
     expect(GardenRules.treeStage(80), 4);
   });
+
+  test('un evento personal sin proyecto no rompe la carga del jardín', () {
+    final event = GardenEvent.fromMap({
+      'id': 'evento-personal',
+      'project_id': null,
+      'points': 20,
+      'flower_type': 'sprout',
+      'event_type': 'task_completed',
+      'created_at': '2026-11-20T19:30:43.729284Z',
+      'projects': <dynamic>[],
+    });
+
+    expect(event.projectId, isNull);
+    expect(event.projectName, isNull);
+    expect(event.points, 20);
+  });
 }

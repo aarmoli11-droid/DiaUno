@@ -45,6 +45,7 @@ class FinanceRepository {
   }
 
   Future<void> deleteTransaction(String id) async {
+    await _removeReceipts([id]);
     await _client.from('transactions').delete().eq('id', id);
   }
 
@@ -75,7 +76,37 @@ class FinanceRepository {
   }
 
   Future<void> deleteSubscription(String id) async {
+    // El trigger `subscriptions_cleanup` borrará los movimientos y sus
+    // distribuciones. Primero quitamos sus comprobantes de Storage: después
+    // las políticas ya no permitirían borrarlos porque la fila padre no existe.
+    final rows = await _client
+        .from('transactions')
+        .select('id')
+        .eq('subscription_id', id);
+    final ids = rows
+        .map((r) => Map<String, dynamic>.from(r as Map)['id'] as String)
+        .toList();
+    await _removeReceipts(ids);
     await _client.from('subscriptions').delete().eq('id', id);
+  }
+
+  Future<void> _removeReceipts(List<String> transactionIds) async {
+    if (transactionIds.isEmpty) return;
+    final files = await _client
+        .from('files')
+        .select('bucket, storage_path')
+        .inFilter('transaction_id', transactionIds);
+    final byBucket = <String, List<String>>{};
+    for (final row in files) {
+      final map = Map<String, dynamic>.from(row as Map);
+      final bucket = map['bucket'] as String?;
+      final path = map['storage_path'] as String?;
+      if (bucket == null || path == null) continue;
+      byBucket.putIfAbsent(bucket, () => <String>[]).add(path);
+    }
+    for (final entry in byBucket.entries) {
+      await _client.storage.from(entry.key).remove(entry.value);
+    }
   }
 
   Future<

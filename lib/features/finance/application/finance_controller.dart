@@ -51,6 +51,8 @@ class FinanceActions extends Notifier<bool> {
   Future<void> deleteTransaction(String id) async {
     await ref.read(financeRepositoryProvider).deleteTransaction(id);
     ref.invalidate(transactionsProvider);
+    ref.invalidate(subscriptionsProvider);
+    ref.read(appDataRevisionProvider.notifier).bump();
   }
 
   Future<Subscription> createSubscription(Subscription subscription) async {
@@ -69,6 +71,8 @@ class FinanceActions extends Notifier<bool> {
   Future<void> deleteSubscription(String id) async {
     await ref.read(financeRepositoryProvider).deleteSubscription(id);
     ref.invalidate(subscriptionsProvider);
+    ref.invalidate(transactionsProvider);
+    ref.read(appDataRevisionProvider.notifier).bump();
   }
 
   Future<void> saveDistribution({

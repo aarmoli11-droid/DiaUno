@@ -51,7 +51,9 @@ class GardenScreen extends ConsumerWidget {
                     value: events,
                     onRetry: () => ref.invalidate(gardenEventsProvider(null)),
                     builder: (context, gardenEvents) {
-                      final byProject = <String, int>{};
+                      // Las ocurrencias personales no tienen proyecto: se
+                      // agrupan bajo null y siguen sumando al total del jardín.
+                      final byProject = <String?, int>{};
                       for (final event in gardenEvents) {
                         byProject[event.projectId] =
                             (byProject[event.projectId] ?? 0) + event.points;

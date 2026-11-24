@@ -4,6 +4,9 @@ import 'package:uuid/uuid.dart';
 import '../../../core/data/local_store.dart';
 import '../../../core/providers/core_providers.dart';
 import '../../auth/application/auth_controller.dart';
+import '../../finance/application/finance_controller.dart';
+import '../../garden/application/garden_controller.dart';
+import '../../tasks/application/tasks_controller.dart';
 import '../data/project_extras_repository.dart';
 import '../data/projects_repository.dart';
 import '../domain/project.dart';
@@ -92,7 +95,14 @@ class ProjectActions extends Notifier<bool> {
 
   Future<void> delete(String id) async {
     await ref.read(projectsRepositoryProvider).deleteProject(id);
+    // Un proyecto arrastra tareas, jardín y finanzas. Todas las vistas que los
+    // consumen deben refrescarse, no sólo la lista de proyectos.
     ref.invalidate(projectsProvider);
+    ref.invalidate(taskOccurrencesProvider);
+    ref.invalidate(gardenEventsProvider);
+    ref.invalidate(transactionsProvider);
+    ref.invalidate(subscriptionsProvider);
+    ref.read(appDataRevisionProvider.notifier).bump();
   }
 
   Future<void> addMember(

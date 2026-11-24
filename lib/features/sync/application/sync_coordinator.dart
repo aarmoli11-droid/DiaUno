@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/data/sync_service.dart';
 import '../../../core/errors/app_failure.dart';
 import '../../../core/providers/core_providers.dart';
+import '../../garden/application/garden_controller.dart';
+import '../../projects/application/projects_controller.dart';
 import '../../tasks/application/tasks_controller.dart';
 import '../../tasks/domain/task.dart';
 
@@ -35,6 +37,8 @@ final syncCoordinatorProvider = FutureProvider<SyncService>((ref) async {
     final rows = await query.select('id');
     if (rows.isEmpty) throw const ConflictFailure();
     ref.invalidate(taskOccurrencesProvider);
+    ref.invalidate(gardenEventsProvider);
+    ref.invalidate(projectsProvider);
   });
 
   sync.register('project_update', (mutation) async {
