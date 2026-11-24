@@ -189,7 +189,7 @@ void main() {
     expect(inactive.style?.color, p.navInactive);
   });
 
-  testWidgets('la barra móvil es compacta y Agenda/Perfil van en el cajón', (
+  testWidgets('la barra móvil es compacta y Agenda va en el cajón', (
     tester,
   ) async {
     setMobileSize(tester);
@@ -204,10 +204,12 @@ void main() {
       find.descendant(of: navBar, matching: find.text('Agenda')),
       findsNothing,
     );
-    expect(
-      find.descendant(of: navBar, matching: find.text('Perfil')),
-      findsNothing,
-    );
+    for (final label in ['Inicio', 'Proyectos', 'Compartidos', 'Jardín', 'Menú']) {
+      expect(
+        find.descendant(of: navBar, matching: find.text(label)),
+        findsOneWidget,
+      );
+    }
 
     await tester.tap(find.byTooltip('Abrir menú'));
     await tester.pumpAndSettle();
@@ -216,12 +218,12 @@ void main() {
       of: find.byType(Drawer),
       matching: find.text('Agenda'),
     );
-    final drawerProfile = find.descendant(
+    final drawerSettings = find.descendant(
       of: find.byType(Drawer),
-      matching: find.text('Perfil'),
+      matching: find.text('Configuración'),
     );
     expect(drawerAgenda, findsOneWidget);
-    expect(drawerProfile, findsOneWidget);
+    expect(drawerSettings, findsOneWidget);
 
     await tester.tap(drawerAgenda);
     await tester.pumpAndSettle();
@@ -244,7 +246,7 @@ void main() {
     expect(physics, isA<ClampingScrollPhysics>());
   });
 
-  testWidgets('el perfil móvil permite cambiar el tema y cerrar sesión', (
+  testWidgets('la configuración móvil permite cambiar el tema y cerrar sesión', (
     tester,
   ) async {
     setMobileSize(tester);
@@ -254,7 +256,10 @@ void main() {
     await tester.tap(find.byTooltip('Abrir menú'));
     await tester.pumpAndSettle();
     await tester.tap(
-      find.descendant(of: find.byType(Drawer), matching: find.text('Perfil')),
+      find.descendant(
+        of: find.byType(Drawer),
+        matching: find.text('Configuración'),
+      ),
     );
     await tester.pumpAndSettle();
 

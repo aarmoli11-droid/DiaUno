@@ -5,28 +5,72 @@ import 'package:go_router/go_router.dart';
 import '../../core/brand.dart';
 import '../../core/providers/core_providers.dart';
 import '../../core/theme/tokens.dart';
-import '../../features/settings/application/settings_controller.dart';
 import 'sync_banner.dart';
 
+/// Índices reales de `StatefulShellRoute.indexedStack` en `app_router.dart`.
+/// La barra inferior móvil no los muestra tal cual: Agenda (índice 2) se
+/// agrupa dentro de Menú, pero su rama y su ruta se conservan intactas.
+abstract final class _Nav {
+  static const home = 0;
+  static const projects = 1;
+  static const agenda = 2;
+  static const shared = 3;
+  static const garden = 4;
+}
+
 class _Destination {
-  const _Destination(this.label, this.icon, this.path, this.branch);
+  const _Destination(this.label, this.icon, this.path, this.branchIndex);
 
   final String label;
   final IconData icon;
   final String path;
 
-  /// Índice de la rama en `StatefulShellRoute` (no siempre coincide con el
-  /// orden visual del menú, porque Agenda y Perfil viven en el cajón lateral).
-  final int branch;
+  /// Índice de la rama en `StatefulShellRoute`; null si no es una rama.
+  final int? branchIndex;
 }
 
+/// Mismo orden que las ramas declaradas en `app_router.dart`.
 const _destinations = [
-  _Destination('Inicio', Icons.home_rounded, '/home', 0),
-  _Destination('Proyectos', Icons.grid_view_rounded, '/projects', 1),
-  _Destination('Agenda', Icons.calendar_month_rounded, '/agenda', 2),
-  _Destination('Compartidos', Icons.groups_rounded, '/shared', 3),
-  _Destination('Jardín', Icons.eco_rounded, '/garden', 4),
-  _Destination('Perfil', Icons.person_rounded, '/profile', 5),
+  _Destination(
+    'Inicio',
+    Icons.home_rounded,
+    '/home',
+    _Nav.home,
+  ),
+  _Destination(
+    'Proyectos',
+    Icons.grid_view_rounded,
+    '/projects',
+    _Nav.projects,
+  ),
+  _Destination('Agenda', Icons.calendar_month_rounded, '/agenda', _Nav.agenda),
+  _Destination('Compartidos', Icons.groups_rounded, '/shared', _Nav.shared),
+  _Destination('Jardín', Icons.eco_rounded, '/garden', _Nav.garden),
+];
+
+/// Posiciones visibles en la barra inferior móvil. Menú no es una rama: es la
+/// acción que abre el Drawer y representa también el grupo que contiene Agenda.
+const _mobileBranchIndexes = [
+  _Nav.home,
+  _Nav.projects,
+  _Nav.shared,
+  _Nav.garden,
+];
+
+const _menuDestination = _Destination('Menú', Icons.menu_rounded, '', null);
+
+/// Contenido del Drawer móvil. Las rutas ya existen en el router.
+const _drawerDestinations = [
+  _Destination('Agenda', Icons.calendar_month_rounded, '/agenda', _Nav.agenda),
+  _Destination('Buscar', Icons.search_rounded, '/search', null),
+  _Destination('Tiempo', Icons.schedule_rounded, '/time', null),
+  _Destination(
+    'Notificaciones',
+    Icons.notifications_none_rounded,
+    '/notifications',
+    null,
+  ),
+  _Destination('Configuración', Icons.settings_outlined, '/settings', null),
 ];
 
 class AppShell extends ConsumerStatefulWidget {
@@ -52,26 +96,39 @@ class _AppShellState extends ConsumerState<AppShell> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final wide = constraints.maxWidth >= 900;
-        if (wide) {
+        if (constraints.maxWidth >= 900) {
           return Scaffold(
             body: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _Sidebar(selectedIndex: selectedIndex),
+                _Sidebar(
+                  selectedIndex: selectedIndex,
+                  onDestination: widget.navigationShell.goBranch,
+                  onRoute: (path) => _pushOnce(context, path),
+                ),
                 const VerticalDivider(width: 1),
                 Expanded(child: _content(context, showBanner)),
               ],
             ),
           );
         }
+
+        final drawerWidth = (constraints.maxWidth - 48)
+            .clamp(220.0, 320.0)
+            .toDouble();
         return Scaffold(
           key: _scaffoldKey,
-          drawer: _AppDrawer(selectedIndex: selectedIndex),
+          drawer: _AppMenuDrawer(
+            width: drawerWidth,
+            currentIndex: selectedIndex,
+            onAgenda: () => widget.navigationShell.goBranch(_Nav.agenda),
+            onRoute: (path) => _pushOnce(context, path),
+          ),
           body: _content(context, showBanner),
-          bottomNavigationBar: _MobileNav(
+          bottomNavigationBar: _PillNav(
             selectedIndex: selectedIndex,
-            onMenu: () => _scaffoldKey.currentState?.openDrawer(),
+            onBranchSelected: widget.navigationShell.goBranch,
+            onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
           ),
         );
       },
@@ -95,18 +152,28 @@ class _AppShellState extends ConsumerState<AppShell> {
       ],
     );
   }
+
+  /// Las opciones secundarias viven fuera del shell; `push` conserva el estado
+  /// de las ramas al volver. El guardián evita apilar la misma ruta dos veces.
+  void _pushOnce(BuildContext context, String path) {
+    if (GoRouterState.of(context).uri.path == path) return;
+    context.push(path);
+  }
 }
 
-class _MobileNav extends StatelessWidget {
-  const _MobileNav({required this.selectedIndex, required this.onMenu});
+class _PillNav extends StatelessWidget {
+  const _PillNav({
+    required this.selectedIndex,
+    required this.onBranchSelected,
+    required this.onMenuTap,
+  });
 
   final int selectedIndex;
-  final VoidCallback onMenu;
+  final ValueChanged<int> onBranchSelected;
+  final VoidCallback onMenuTap;
 
   @override
   Widget build(BuildContext context) {
-    final primary = _destinations.where((d) => d.branch != 2 && d.branch != 5);
-    final menuSelected = selectedIndex == 2 || selectedIndex == 5;
     return SafeArea(
       top: false,
       child: Padding(
@@ -119,22 +186,23 @@ class _MobileNav extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                for (final destination in primary)
-                  _NavItem(
-                    destination: destination,
-                    selected: destination.branch == selectedIndex,
-                    onTap: () => _goTo(context, destination),
+                for (final index in _mobileBranchIndexes)
+                  Expanded(
+                    child: _PillItem(
+                      destination: _destinations[index],
+                      selected: index == selectedIndex,
+                      onTap: () {
+                        if (index != selectedIndex) onBranchSelected(index);
+                      },
+                    ),
                   ),
-                _NavItem(
-                  destination: const _Destination(
-                    'Menú',
-                    Icons.menu_rounded,
-                    '',
-                    -1,
+                Expanded(
+                  child: _PillItem(
+                    destination: _menuDestination,
+                    selected: selectedIndex == _Nav.agenda,
+                    tooltipLabel: 'Abrir menú',
+                    onTap: onMenuTap,
                   ),
-                  selected: menuSelected,
-                  onTap: onMenu,
-                  semanticsLabel: 'Abrir menú',
                 ),
               ],
             ),
@@ -145,18 +213,18 @@ class _MobileNav extends StatelessWidget {
   }
 }
 
-class _NavItem extends StatelessWidget {
-  const _NavItem({
+class _PillItem extends StatelessWidget {
+  const _PillItem({
     required this.destination,
     required this.selected,
     required this.onTap,
-    this.semanticsLabel,
+    this.tooltipLabel,
   });
 
   final _Destination destination;
   final bool selected;
   final VoidCallback onTap;
-  final String? semanticsLabel;
+  final String? tooltipLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -165,46 +233,43 @@ class _NavItem extends StatelessWidget {
     final inactiveColor = p.navInactive;
     final color = selected ? activeColor : inactiveColor;
     return Tooltip(
-      message: semanticsLabel ?? destination.label,
+      message: tooltipLabel ?? destination.label,
       child: Semantics(
         button: true,
         selected: selected,
-        label: semanticsLabel ?? destination.label,
+        label: destination.label,
         child: InkWell(
           borderRadius: BorderRadius.circular(AppRadius.sm),
           onTap: onTap,
-          child: SizedBox(
-            width: 64,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  width: 42,
-                  height: 32,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: selected
-                        ? activeColor.withValues(alpha: 0.12)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(AppRadius.sm),
-                  ),
-                  child: Icon(destination.icon, size: 20, color: color),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                width: 42,
+                height: 32,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: selected
+                      ? activeColor.withValues(alpha: 0.12)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  destination.label,
-                  style: TextStyle(
-                    fontSize: 10,
-                    height: 1,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                    color: color,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                child: Icon(destination.icon, size: 20, color: color),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                destination.label,
+                style: TextStyle(
+                  fontSize: 10,
+                  height: 1,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  color: color,
                 ),
-              ],
-            ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
           ),
         ),
       ),
@@ -212,157 +277,125 @@ class _NavItem extends StatelessWidget {
   }
 }
 
-class _AppDrawer extends ConsumerWidget {
-  const _AppDrawer({required this.selectedIndex});
+/// Drawer modal del shell móvil: superpone el contenido, respeta SafeArea y
+/// usa el mismo sistema visual que el sidebar.
+class _AppMenuDrawer extends StatelessWidget {
+  const _AppMenuDrawer({
+    required this.width,
+    required this.currentIndex,
+    required this.onAgenda,
+    required this.onRoute,
+  });
 
-  final int selectedIndex;
+  final double width;
+  final int currentIndex;
+  final VoidCallback onAgenda;
+  final ValueChanged<String> onRoute;
+
+  void _close(BuildContext context) {
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) navigator.pop();
+  }
+
+  void _selectAgenda(BuildContext context) {
+    _close(context);
+    if (currentIndex != _Nav.agenda) onAgenda();
+  }
+
+  void _selectRoute(BuildContext context, String path) {
+    _close(context);
+    onRoute(path);
+  }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final p = paletteFor(context);
-    final profile = ref.watch(profileProvider).value;
-    final name = profile?.displayName.trim() ?? '';
-    final drawerDestinations = _destinations
-        .where((d) => d.branch == 2 || d.branch == 5)
-        .toList();
-
-    void closeAnd(void Function() action) {
-      Navigator.of(context).pop();
-      action();
-    }
-
-    return Drawer(
-      child: SafeArea(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.xl,
-                AppSpacing.xl,
-                AppSpacing.lg,
-                AppSpacing.lg,
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.eco_rounded, color: p.primary, size: 26),
-                  const SizedBox(width: AppSpacing.sm),
-                  Text(
-                    Brand.name,
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    tooltip: 'Cerrar menú',
-                    icon: const Icon(Icons.close_rounded),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
-              ),
-            ),
-            if (name.isNotEmpty)
+    final theme = Theme.of(context);
+    return DrawerTheme(
+      data: DrawerThemeData(
+        width: width,
+        backgroundColor: p.surface,
+        scrimColor: p.scrim,
+        elevation: 12,
+        shadowColor: p.scrim,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.horizontal(
+            right: Radius.circular(AppRadius.md),
+          ),
+        ),
+      ),
+      child: Drawer(
+        child: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.xl,
-                  0,
-                  AppSpacing.xl,
+                  AppSpacing.lg,
+                  AppSpacing.md,
+                  AppSpacing.sm,
                   AppSpacing.md,
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
                   children: [
-                    Text(name, style: Theme.of(context).textTheme.titleMedium),
-                    if (profile?.email.isNotEmpty ?? false)
-                      Text(
-                        profile!.email,
-                        style: Theme.of(
-                          context,
-                        ).textTheme.bodySmall?.copyWith(color: p.textSecondary),
+                    Icon(Icons.eco_rounded, color: p.primary, size: 22),
+                    const SizedBox(width: AppSpacing.sm),
+                    Text('Menú', style: theme.textTheme.titleLarge),
+                    const Spacer(),
+                    IconButton(
+                      tooltip: 'Cerrar menú',
+                      icon: const Icon(Icons.close),
+                      onPressed: () => _close(context),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                  children: [
+                    for (final item in _drawerDestinations)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.sm,
+                          vertical: 2,
+                        ),
+                        child: _SidebarItem(
+                          destination: item,
+                          selected:
+                              item.branchIndex == _Nav.agenda &&
+                              currentIndex == _Nav.agenda,
+                          onTap: () {
+                            if (item.branchIndex == _Nav.agenda) {
+                              _selectAgenda(context);
+                            } else {
+                              _selectRoute(context, item.path);
+                            }
+                          },
+                        ),
                       ),
                   ],
                 ),
               ),
-            const Divider(height: 1),
-            const SizedBox(height: AppSpacing.sm),
-            for (final destination in drawerDestinations)
-              ListTile(
-                selected: destination.branch == selectedIndex,
-                selectedTileColor: p.primary.withValues(alpha: 0.08),
-                leading: Icon(
-                  destination.icon,
-                  color: destination.branch == selectedIndex
-                      ? p.primary
-                      : p.navInactive,
-                ),
-                title: Text(
-                  destination.label,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: destination.branch == selectedIndex
-                        ? p.primary
-                        : p.text,
-                    fontWeight: destination.branch == selectedIndex
-                        ? FontWeight.w700
-                        : FontWeight.w500,
-                  ),
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppRadius.sm),
-                ),
-                onTap: () => closeAnd(() => _goTo(context, destination)),
-              ),
-            const Divider(height: 1),
-            const SizedBox(height: AppSpacing.sm),
-            _DrawerUtility(
-              icon: Icons.search_rounded,
-              label: 'Buscar',
-              onTap: () => closeAnd(() => context.push('/search')),
-            ),
-            _DrawerUtility(
-              icon: Icons.schedule_rounded,
-              label: 'Tiempo',
-              onTap: () => closeAnd(() => context.push('/time')),
-            ),
-            _DrawerUtility(
-              icon: Icons.notifications_none_rounded,
-              label: 'Notificaciones',
-              onTap: () => closeAnd(() => context.push('/notifications')),
-            ),
-            _DrawerUtility(
-              icon: Icons.settings_outlined,
-              label: 'Ajustes',
-              onTap: () => closeAnd(() => context.push('/settings')),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _DrawerUtility extends StatelessWidget {
-  const _DrawerUtility({
-    required this.icon,
-    required this.label,
-    required this.onTap,
+class _Sidebar extends StatelessWidget {
+  const _Sidebar({
+    required this.selectedIndex,
+    required this.onDestination,
+    required this.onRoute,
   });
 
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => ListTile(
-    dense: true,
-    leading: Icon(icon, size: 20),
-    title: Text(label, style: Theme.of(context).textTheme.bodyMedium),
-    onTap: onTap,
-  );
-}
-
-class _Sidebar extends StatelessWidget {
-  const _Sidebar({required this.selectedIndex});
-
   final int selectedIndex;
+  final ValueChanged<int> onDestination;
+  final ValueChanged<String> onRoute;
 
   @override
   Widget build(BuildContext context) {
@@ -398,31 +431,31 @@ class _Sidebar extends StatelessWidget {
                 ),
                 child: _SidebarItem(
                   destination: destination,
-                  selected: destination.branch == selectedIndex,
-                  onTap: () => _goTo(context, destination),
+                  selected: destination.branchIndex == selectedIndex,
+                  onTap: () => onDestination(destination.branchIndex!),
                 ),
               ),
             const Spacer(),
             const Divider(height: 1),
             _UtilityItem(
-              icon: Icons.search,
+              icon: Icons.search_rounded,
               label: 'Buscar',
-              onTap: () => context.push('/search'),
+              onTap: () => onRoute('/search'),
             ),
             _UtilityItem(
-              icon: Icons.schedule,
+              icon: Icons.schedule_rounded,
               label: 'Tiempo',
-              onTap: () => context.push('/time'),
+              onTap: () => onRoute('/time'),
             ),
             _UtilityItem(
-              icon: Icons.notifications_none,
+              icon: Icons.notifications_none_rounded,
               label: 'Notificaciones',
-              onTap: () => context.push('/notifications'),
+              onTap: () => onRoute('/notifications'),
             ),
             _UtilityItem(
               icon: Icons.settings_outlined,
               label: 'Ajustes',
-              onTap: () => context.push('/settings'),
+              onTap: () => onRoute('/settings'),
             ),
           ],
         ),
@@ -484,8 +517,4 @@ class _UtilityItem extends StatelessWidget {
     title: Text(label, style: Theme.of(context).textTheme.bodySmall),
     onTap: onTap,
   );
-}
-
-void _goTo(BuildContext context, _Destination destination) {
-  context.go(destination.path);
 }
