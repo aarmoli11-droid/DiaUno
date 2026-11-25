@@ -187,15 +187,9 @@ class _AgendaScreenState extends ConsumerState<AgendaScreen> {
                         SizedBox(
                           width: compact ? AppSpacing.xs : AppSpacing.sm,
                         ),
-                        TextButton.icon(
-                          onPressed: () => context.push('/agenda/events/new'),
-                          icon: Icon(
-                            compact
-                                ? Icons.add
-                                : Icons.event_available_outlined,
-                            size: compact ? 18 : null,
-                          ),
-                          label: Text(compact ? 'Nuevo' : 'Nuevo evento'),
+                        AgendaQuickAddTaskButton(
+                          date: _selected,
+                          compact: compact,
                         ),
                       ],
                     );
@@ -305,6 +299,35 @@ class _AgendaScreenState extends ConsumerState<AgendaScreen> {
   }
 }
 
+/// Acceso rápido situado bajo el calendario.
+///
+/// Apunta al mismo formulario de tareas que el botón inferior, sin estado de
+/// carga propio. Antes abría `/agenda/events/new`, que colisiona con la ruta
+/// de edición `events/:eventId` y dejaba la pantalla cargando indefinidamente.
+class AgendaQuickAddTaskButton extends StatelessWidget {
+  const AgendaQuickAddTaskButton({
+    required this.date,
+    required this.compact,
+    super.key,
+  });
+
+  final DateTime date;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton.icon(
+      onPressed: () =>
+          context.push('/tasks/new?date=${Date.fromDateTime(date).iso}'),
+      icon: Icon(
+        compact ? Icons.add : Icons.add_task_outlined,
+        size: compact ? 18 : null,
+      ),
+      label: Text(compact ? 'Nuevo' : 'Nueva tarea'),
+    );
+  }
+}
+
 class EventFormScreen extends ConsumerStatefulWidget {
   const EventFormScreen({this.eventId, super.key});
 
@@ -338,21 +361,26 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
   }
 
   Future<void> _load() async {
-    final event = await ref
-        .read(agendaRepositoryProvider)
-        .getEvent(widget.eventId!);
-    if (!mounted) return;
-    if (event != null) {
-      _existing = event;
-      _title.text = event.title;
-      _description.text = event.description;
-      _location.text = event.location ?? '';
-      _date = event.startsAt;
-      _start = TimeOfDay.fromDateTime(event.startsAt);
-      _end = TimeOfDay.fromDateTime(event.endsAt);
-      _allDay = event.allDay;
+    try {
+      final event = await ref
+          .read(agendaRepositoryProvider)
+          .getEvent(widget.eventId!);
+      if (!mounted) return;
+      if (event != null) {
+        _existing = event;
+        _title.text = event.title;
+        _description.text = event.description;
+        _location.text = event.location ?? '';
+        _date = event.startsAt;
+        _start = TimeOfDay.fromDateTime(event.startsAt);
+        _end = TimeOfDay.fromDateTime(event.endsAt);
+        _allDay = event.allDay;
+      }
+    } catch (e) {
+      if (mounted) setState(() => _error = 'No se pudo cargar el evento: $e');
+    } finally {
+      if (mounted) setState(() => _loaded = true);
     }
-    setState(() => _loaded = true);
   }
 
   @override

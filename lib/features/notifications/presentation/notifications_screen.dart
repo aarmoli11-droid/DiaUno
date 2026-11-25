@@ -1,89 +1,52 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/tokens.dart';
-import '../../../shared/widgets/async_view.dart';
-import '../application/notifications_controller.dart';
 
-class NotificationsScreen extends ConsumerWidget {
+/// Estado informativo: el envío de notificaciones aún no está disponible.
+class NotificationsScreen extends StatelessWidget {
   const NotificationsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final notifications = ref.watch(notificationsProvider);
+  Widget build(BuildContext context) {
+    final p = paletteFor(context);
+    final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Notificaciones'),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              await ref
-                  .read(notificationsActionsProvider.notifier)
-                  .markAllRead();
-            },
-            child: const Text('Marcar todas'),
+      appBar: AppBar(title: const Text('Notificaciones')),
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.xl),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.notifications_off_outlined,
+                    size: 56,
+                    color: p.textSecondary,
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  Text(
+                    'Notificaciones no disponibles',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.titleLarge?.copyWith(color: p.text),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    'Esta función todavía no está disponible en DíaUno.',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: p.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-        ],
-      ),
-      body: AsyncView(
-        value: notifications,
-        onRetry: () => ref.invalidate(notificationsProvider),
-        empty: (list) => list.isEmpty,
-        builder: (context, list) => ListView.separated(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          itemCount: list.length,
-          separatorBuilder: (_, _) => const Divider(height: 1),
-          itemBuilder: (context, index) {
-            final item = list[index];
-            final p = paletteFor(context);
-            return ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: CircleAvatar(
-                backgroundColor: item.isRead
-                    ? p.surfaceMuted
-                    : p.primary.withValues(alpha: 0.15),
-                child: Icon(
-                  _iconFor(item.category),
-                  size: 18,
-                  color: item.isRead ? p.textSecondary : p.primary,
-                ),
-              ),
-              title: Text(
-                item.title,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontWeight: item.isRead ? FontWeight.w400 : FontWeight.w700,
-                ),
-              ),
-              subtitle: Text(item.body.isEmpty ? item.category : item.body),
-              trailing: IconButton(
-                icon: const Icon(Icons.close, size: 18),
-                tooltip: 'Descartar',
-                onPressed: () async {
-                  await ref
-                      .read(notificationsActionsProvider.notifier)
-                      .delete(item.id);
-                },
-              ),
-              onTap: () async {
-                if (!item.isRead) {
-                  await ref
-                      .read(notificationsActionsProvider.notifier)
-                      .markRead(item.id);
-                }
-              },
-            );
-          },
         ),
       ),
     );
   }
 }
-
-IconData _iconFor(String category) => switch (category) {
-  'task' => Icons.checklist,
-  'finance' => Icons.payments_outlined,
-  'project' => Icons.grid_view_outlined,
-  'garden' => Icons.eco_outlined,
-  _ => Icons.notifications_none,
-};

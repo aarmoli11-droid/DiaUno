@@ -71,21 +71,34 @@ class SettingsScreen extends ConsumerWidget {
                       ),
                     ),
                     SegmentedButton<ThemeMode>(
+                      // Tres segmentos del mismo ancho, ocupando todo el
+                      // disponible incluso en pantallas de 320 px.
+                      expandedInsets: EdgeInsets.zero,
+                      // El check de selección consume el espacio que necesitan
+                      // las etiquetas; el segmento activo ya se distingue por
+                      // el color de Material 3.
+                      showSelectedIcon: false,
                       segments: const [
                         ButtonSegment(
                           value: ThemeMode.system,
-                          icon: Icon(Icons.brightness_auto),
-                          label: Text('Sistema'),
+                          label: _ThemeSegmentLabel(
+                            icon: Icons.brightness_auto,
+                            text: 'Sistema',
+                          ),
                         ),
                         ButtonSegment(
                           value: ThemeMode.light,
-                          icon: Icon(Icons.light_mode),
-                          label: Text('Claro'),
+                          label: _ThemeSegmentLabel(
+                            icon: Icons.light_mode,
+                            text: 'Claro',
+                          ),
                         ),
                         ButtonSegment(
                           value: ThemeMode.dark,
-                          icon: Icon(Icons.dark_mode),
-                          label: Text('Oscuro'),
+                          label: _ThemeSegmentLabel(
+                            icon: Icons.dark_mode,
+                            text: 'Oscuro',
+                          ),
                         ),
                       ],
                       selected: {mode},
@@ -94,6 +107,19 @@ class SettingsScreen extends ConsumerWidget {
                             .read(settingsActionsProvider.notifier)
                             .setTheme(values.first);
                       },
+                      style: ButtonStyle(
+                        padding: WidgetStateProperty.all(
+                          const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+                        ),
+                        textStyle: WidgetStateProperty.all(
+                          const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        minimumSize: WidgetStateProperty.all(const Size(0, 40)),
+                        visualDensity: VisualDensity.compact,
+                      ),
                     ),
                   ],
                 ),
@@ -170,6 +196,30 @@ class _Section extends StatelessWidget {
           Text(title, style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: AppSpacing.md),
           ...children,
+        ],
+      ),
+    );
+  }
+}
+
+/// Etiqueta compacta de cada segmento: icono y texto comparten el `label`
+/// para que Flutter no imponga el padding de `ButtonSegment.icon`.
+class _ThemeSegmentLabel extends StatelessWidget {
+  const _ThemeSegmentLabel({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        spacing: 2,
+        children: [
+          Icon(icon, size: 14),
+          Text(text, maxLines: 1, overflow: TextOverflow.visible),
         ],
       ),
     );

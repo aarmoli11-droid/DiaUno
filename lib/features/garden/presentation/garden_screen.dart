@@ -65,7 +65,7 @@ class GardenScreen extends ConsumerWidget {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _GardenCanvas(points: total),
+                          GardenCanvas(points: total),
                           const SizedBox(height: AppSpacing.md),
                           Text(
                             '${GardenRules.flowerLabel(GardenRules.flowerForPoints(total))} · $total puntos acumulados',
@@ -256,8 +256,8 @@ class _ProjectBloom extends StatelessWidget {
   }
 }
 
-class _GardenCanvas extends StatelessWidget {
-  const _GardenCanvas({required this.points});
+class GardenCanvas extends StatelessWidget {
+  const GardenCanvas({required this.points, super.key});
 
   final int points;
 
@@ -286,17 +286,25 @@ class _GardenCanvas extends StatelessWidget {
         decoration: BoxDecoration(
           color: p.surfaceMuted,
           borderRadius: BorderRadius.circular(AppRadius.lg),
+        ),
+        foregroundDecoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(AppRadius.lg),
           border: Border.all(color: p.border),
         ),
-        child: CustomPaint(
-          size: Size.infinite,
-          painter: _GardenPainter(
-            sky: p.surfaceMuted,
-            ground: p.primary.withValues(alpha: 0.25),
-            sun: p.warning,
-            stem: p.primary,
-            petal: p.accent,
-            points: points,
+        // El painter dibuja un rectángulo a tamaño completo; sin este recorte
+        // sus esquinas cuadradas sobresalen del contenedor redondeado.
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          child: CustomPaint(
+            size: Size.infinite,
+            painter: _GardenPainter(
+              sky: p.surfaceMuted,
+              ground: p.primary.withValues(alpha: 0.25),
+              sun: p.warning,
+              stem: p.primary,
+              petal: p.accent,
+              points: points,
+            ),
           ),
         ),
       ),

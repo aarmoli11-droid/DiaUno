@@ -18,6 +18,29 @@ String _safeError(Object error) {
   return failure.message;
 }
 
+/// Título de los diálogos de proyectos.
+///
+/// El estilo por defecto de `AlertDialog` en Material 3 usa `headlineSmall`,
+/// que no está definido en [AppTheme] y conserva el color de la tipografía
+/// base (oscura). Se conserva la tipografía del tema y se aplica el color
+/// semántico resuelto para que responda al cambio claro/oscuro.
+class ProjectDialogTitle extends StatelessWidget {
+  const ProjectDialogTitle({required this.text, super.key});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Text(
+      text,
+      style: theme.textTheme.headlineSmall?.copyWith(
+        color: theme.colorScheme.onSurface,
+      ),
+    );
+  }
+}
+
 class ProjectsScreen extends ConsumerStatefulWidget {
   const ProjectsScreen({super.key});
 
@@ -236,7 +259,7 @@ Future<void> _showProjectForm(BuildContext context, WidgetRef ref) async {
     context: context,
     builder: (dialogContext) => StatefulBuilder(
       builder: (context, setState) => AlertDialog(
-        title: const Text('Nuevo proyecto'),
+        title: const ProjectDialogTitle(text: 'Nuevo proyecto'),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -423,7 +446,7 @@ Future<void> _editProject(
     context: context,
     builder: (dialogContext) => StatefulBuilder(
       builder: (context, setState) => AlertDialog(
-        title: const Text('Editar proyecto'),
+        title: const ProjectDialogTitle(text: 'Editar proyecto'),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
